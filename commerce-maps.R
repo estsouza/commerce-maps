@@ -6,7 +6,7 @@ library(tidyverse)
 library(sf)
 library(purrr)
 library(viridis)
-library(terra)
+library(raster)
 # install.packages("spatstat")
 library(spatstat)
 # devtools::install_github("OmaymaS/yelpr")
@@ -75,10 +75,28 @@ heatmap_plot <- ggplot(data = results, aes(x = lon, y = lat)) +
   labs(title = "Business Heatmap", x = "Longitude", y = "Latitude")
 plot(heatmap_plot)
 
-r <- rast(businesses, res = 1000)
-r <- rasterize(r, businesses)
+
 businesses <- businesses |> st_transform(crs = 3857)
 owin <- as.owin(st_bbox(businesses))
 pts <- as.ppp(businesses)
-ds <- density(pts)
+ds <- density.ppp(pts)
 plot(ds)
+
+heatmap_raster <- raster(ds)
+raster::crs(heatmap_raster) <- "EPSG:3857"
+plot(heatmap_raster)
+# library(png)
+# heatmap_img <- terra::plotRGB(heatmap_raster, col = viridis(256, alpha = 0.8), useRaster = FALSE)
+# writePNG(heatmap_img, "heatmap.png")
+# colormap <- viridis(256, alpha = 0.8)
+# pal <- colorNumeric(c("#0C2C84", "#41B6C4", "#FFFFCC"), values(heatmap_raster),
+#                     na.color = "transparent")
+leaflet() %>%
+  addProviderTiles("OpenStreetMap.Mapnik") %>%
+  addRasterImage(heatmap_raster, colors = viridis(256), opacity = 0.8)
+
+
+leaflet() %>% addTiles() %>%
+  addRasterImage(heatmap_raster, opacity = 0.8) %>%
+  addLegend(pal = pal, values = values(heatmap_raster),
+            title = "Businesses density")
