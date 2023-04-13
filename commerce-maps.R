@@ -69,28 +69,24 @@ plot(ds)
 
 heatmap_raster <- raster(ds)
 raster::crs(heatmap_raster) <- "EPSG:3857"
-breaks <- seq(minValue(heatmap_raster), maxValue(heatmap_raster), length.out = length(colors) + 1)
-pal <- colorRampPalette(c("#0081a7", "#00afb9", "#fdfcdc", "#fed9b7", "#f07167"))(length(breaks) - 1)
-
-
-leaflet() |>
-  addTiles() |>
-  addRasterImage(heatmap_raster, colors = colortable, opacity = 0.8) |>
-  addCircleMarkers(data = results, lng = ~lon, lat = ~lat, radius = 3, color = "red", stroke = FALSE) |>
-  addLegend("bottomright", pal = colorBin(pal = colors, domain = breaks, bins = length(colors)),
-            values = breaks, opacity = 0.8, title = "Businesses density", na.label = "No data")
+colors <- c("#0081a7", "#00afb9", "#fdfcdc", "#fed9b7", "#f07167")
+breaks <- seq(minValue(heatmap_raster), quantile(heatmap_raster, probs = .9, ), length.out = length(colors) + 1)
+pal <- colorRampPalette(colors)
+colortable <- pal(length(breaks) - 1)
 
 leaflet() |>
   addTiles() |>
-  addRasterImage(heatmap_raster, opacity = 0.8, colors = colortable) |>
-  addCircleMarkers(data = results, lng = ~lon, lat = ~lat, radius = 3, color = "red", stroke = FALSE) |>
-  addControl(html = legend_html, position = "bottomright")
-
-# Calculate breaks and apply the palette to the raster
-
-
-
-
+  addRasterImage(heatmap_raster, colors = colortable, opacity = 0.7, group = "Heatmap") |>
+  # addCircleMarkers(data = results, lng = ~lon, lat = ~lat, radius = 3, color = "red", stroke = FALSE) |>
+  addCircleMarkers(data = results, lng = ~lon, lat = ~lat, radius = 3, color = "#CC2014", stroke = FALSE, fillOpacity = .5,
+                   group = "Businesses",
+                   popup = paste0("<strong>Name:</strong> ", results$name, "<br>",
+                                  "<strong>Rating:</strong> ", results$rating, "<br>",
+                                  "<strong>Categories:</strong> ", str_flatten_comma(results$categories[[1]]$title))) |>
+  addLayersControl(overlayGroups = c("Businesses", "Heatmap"), options = layersControlOptions(collapsed = FALSE))
+  # addLegend("bottomright",
+  #           pal = colorBin(pal = colors, domain = values(heatmap_raster), bins = length(colors)),
+  #           values = values(heatmap_raster), opacity = 0.7, title = "Businesses density", na.label = "No data")
 
 # # Define the color gradient for the heatmap
 # gradient_colors <- scale_fill_gradientn(
