@@ -1,10 +1,11 @@
 library(shiny)
+library(tidyverse)
 library(leaflet)
 library(httr)
 library(jsonlite)
-library(tidyverse)
+
 library(sf)
-library(purrr)
+# library(purrr)
 library(viridis)
 library(raster)
 # install.packages("spatstat")
@@ -55,48 +56,51 @@ fetch_all_yelp_data <- function(api_key = api_key, city, term, limit = 50) {
 city <- "Gold Coast"
 term <- "pizza"
 results <- fetch_all_yelp_data(api_key, city, term) |>
-  select(id, alias, name, review_count, rating, categories, price, coordinates) |>
+  dplyr::select(id, alias, name, review_count, rating, categories, price, coordinates) |>
   mutate(lon = coordinates$longitude,
          lat = coordinates$latitude) %>%
-  select(-coordinates)
-businesses <- st_as_sf(results, coords = c("lon", "lat"), crs = 4326)
-plot(businesses)
+  dplyr::select(-coordinates)
+businesses <- st_as_sf(results, coords = c("lon", "lat"), crs = 4326) |> st_transform(crs = 3857)
 
-# Define the color gradient for the heatmap
-gradient_colors <- scale_fill_gradientn(
-  colors = c("blue", "green", "yellow", "red")
-)
-heatmap_plot <- ggplot(data = results, aes(x = lon, y = lat)) +
-  geom_density_2d_filled(n = 500, h = 0.4) +
-  geom_point() +
-  scale_color_viridis_c() +
-  coord_cartesian() +
-  theme_minimal() +
-  labs(title = "Business Heatmap", x = "Longitude", y = "Latitude")
-plot(heatmap_plot)
-
-
-businesses <- businesses |> st_transform(crs = 3857)
-owin <- as.owin(st_bbox(businesses))
+# owin <- as.owin(st_bbox(businesses))
 pts <- as.ppp(businesses)
 ds <- density.ppp(pts)
 plot(ds)
 
 heatmap_raster <- raster(ds)
 raster::crs(heatmap_raster) <- "EPSG:3857"
-plot(heatmap_raster)
-# library(png)
-# heatmap_img <- terra::plotRGB(heatmap_raster, col = viridis(256, alpha = 0.8), useRaster = FALSE)
-# writePNG(heatmap_img, "heatmap.png")
-# colormap <- viridis(256, alpha = 0.8)
-# pal <- colorNumeric(c("#0C2C84", "#41B6C4", "#FFFFCC"), values(heatmap_raster),
-#                     na.color = "transparent")
-leaflet() %>%
-  addProviderTiles("OpenStreetMap.Mapnik") %>%
-  addRasterImage(heatmap_raster, colors = viridis(256), opacity = 0.8)
+breaks <- seq(minValue(heatmap_raster), maxValue(heatmap_raster), length.out = length(colors) + 1)
+pal <- colorRampPalette(c("#0081a7", "#00afb9", "#fdfcdc", "#fed9b7", "#f07167"))(length(breaks) - 1)
 
 
-leaflet() %>% addTiles() %>%
-  addRasterImage(heatmap_raster, opacity = 0.8) %>%
-  addLegend(pal = pal, values = values(heatmap_raster),
-            title = "Businesses density")
+leaflet() |>
+  addTiles() |>
+  addRasterImage(heatmap_raster, colors = colortable, opacity = 0.8) |>
+  addCircleMarkers(data = results, lng = ~lon, lat = ~lat, radius = 3, color = "red", stroke = FALSE) |>
+  addLegend("bottomright", pal = colorBin(pal = colors, domain = breaks, bins = length(colors)),
+            values = breaks, opacity = 0.8, title = "Businesses density", na.label = "No data")
+
+leaflet() |>
+  addTiles() |>
+  addRasterImage(heatmap_raster, opacity = 0.8, colors = colortable) |>
+  addCircleMarkers(data = results, lng = ~lon, lat = ~lat, radius = 3, color = "red", stroke = FALSE) |>
+  addControl(html = legend_html, position = "bottomright")
+
+# Calculate breaks and apply the palette to the raster
+
+
+
+
+
+# # Define the color gradient for the heatmap
+# gradient_colors <- scale_fill_gradientn(
+#   colors = c("blue", "green", "yellow", "red")
+# )
+# heatmap_plot <- ggplot(data = results, aes(x = lon, y = lat)) +
+#   geom_density_2d_filled(n = 500, h = 0.4) +
+#   geom_point() +
+#   scale_color_viridis_c() +
+#   coord_cartesian() +
+#   theme_minimal() +
+#   labs(title = "Business Heatmap", x = "Longitude", y = "Latitude")
+# plot(heatmap_plot)
