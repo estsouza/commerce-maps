@@ -64,22 +64,19 @@ results <- fetch_all_yelp_data(api_key, city, term) |>
   dplyr::select(-coordinates)
 businesses <- st_as_sf(results, coords = c("lon", "lat"), crs = 4326) |> st_transform(crs = 3857)
 
-# owin <- as.owin(st_bbox(businesses))
 pts <- as.ppp(businesses)
 ds <- density.ppp(pts)
-plot(ds)
-
-nndist_values <- spatstat::nndist(pts)
-default_sigma <- median(nndist_values) / sqrt(2)
 
 heatmap_raster <- raster(ds)
 raster::crs(heatmap_raster) <- "EPSG:3857"
-colors <- c("#0081a7", "#00afb9", "#fdfcdc", "#fed9b7", "#f07167")
-# breaks <- seq(minValue(heatmap_raster), quantile(heatmap_raster, probs = .9, ), length.out = length(colors) + 1)
-# pal <- colorRampPalette(colors)
-# colortable <- pal(length(breaks) - 1)
+colors <- rev(c('#b2182b','#d6604d','#f4a582','#fddbc7','#f7f7f7','#d1e5f0','#92c5de','#4393c3','#2166ac'))
 pal <- colorNumeric(colors, values(heatmap_raster),
                     na.color = "transparent")
+
+
+# Create a custom color palette function
+# breaks <- quantile(values(heatmap_raster), probs = seq(0, 1, length.out = length(colors) + 1))
+# pal <- colorBin(colors, bins = breaks, na.color = "transparent")
 
 
 leaflet() |>
@@ -93,25 +90,3 @@ leaflet() |>
   addLayersControl(overlayGroups = c("Businesses", "Heatmap"), options = layersControlOptions(collapsed = FALSE))# |>
   # addLegend(pal = pal, values = values(heatmap_raster),
   #           title = "Businesses heatmap")
-
-library(spatstat.utils)
-
-# Calculate bandwidths
-bw_auto <- bw.ppl(pts)
-bw_custom <- c(10000, 1000,0.1,10)
-
-# Create heatmaps
-heatmaps <- list()
-heatmaps[["default"]] <- density.ppp(pts)
-heatmaps[["auto"]] <- density.ppp(pts, sigma = bw_auto)
-
-for (i in 1:length(bw_custom)) {
-  heatmaps[[paste0("sigma_", bw_custom[i])]] <- density.ppp(pts, sigma = bw_custom[i])
-}
-
-# Plot heatmaps
-par(mfrow = c(2, 3))
-
-for (i in 1:length(heatmaps)) {
-  plot(heatmaps[[i]], main = names(heatmaps)[i])
-}
