@@ -2,7 +2,7 @@ fetch_all_yelp_data <- function(api_key = api_key, city, term, limit = 50) {
   base_url <- "https://api.yelp.com/v3/businesses/search"
   # First API call to get the total number of results
   response <- GET(url = base_url,
-                  add_headers(Authorization = paste("Bearer", api_key)),
+                  add_headers(Authorization = paste("Bearer", yelp_api_key)),
                   query = list(location = city, term = term, limit = limit, offset = 0))
   parsed_response <- fromJSON(content(response, type = "text"))
   total_results <- parsed_response$total
