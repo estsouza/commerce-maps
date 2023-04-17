@@ -10,8 +10,9 @@ library(raster)
 # install.packages("spatstat")
 library(spatstat)
 
-# yelp api credentials loaded from config.R
+# yelp and census.gov api keys  loaded from config.R
 # to get your own yelp api_key follow the instruction @ https://docs.developer.yelp.com/docs/fusion-authentication
+# to get your own census.gov api_key visit http://api.census.gov/data/key_signup.html
 source("config.R")
 source("businesses_data_access.R")
 source("businesses_data_process.R")

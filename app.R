@@ -39,3 +39,46 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
+
+
+states <- tidycensus::fips_codes %>%
+  dplyr::select(state_name) %>%
+  unique() |>
+  pull(state_name)
+#
+# selected_state_code <- reactive({input$selected_state})
+# counties <- reactive({
+#   tidycensus::tigris::fips_codes %>%
+#     dplyr::filter(state == selected_state_code(), entity == "county") %>%
+#     dplyr::select(county_code = fips, county_name = name)
+# })
+
+ui <- fluidPage(
+  titlePanel("US States and Counties"),
+
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("selected_state", "Select a State", choices = states, selected = "California"),
+      selectizeInput("selected_county", "Select a County", choices = NULL, selected = NULL,
+                     options = list(placeholder = "Type or select a county"))
+    ),
+
+    mainPanel(
+      # You can display the results here
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  counties <- reactive({
+    tidycensus::fips_codes %>%
+      dplyr::filter(state_name == input$selected_state) %>%
+      dplyr::pull(county)
+  })
+
+  observe({
+    updateSelectizeInput(session, "selected_county", choices = counties(), selected = NULL, server = TRUE)
+  })
+
+}
