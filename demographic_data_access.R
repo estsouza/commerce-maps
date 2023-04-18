@@ -1,5 +1,9 @@
 # install.packages("tidycensus")
+require(tidyverse)
+require(sf)
 require(tidycensus)
+require(viridis)
+require(leaflet)
 source("config.R")
 census_api_key(census.gov_api_key)
 
@@ -29,8 +33,12 @@ ggplot(demo, aes(fill = estimate, color = estimate)) +
   scale_fill_viridis(option = "magma") +
   scale_color_viridis(option = "magma")
 
-leaflet() |>
-  addTiles() |>
-  addPolygons(demo, color = "#444444", weight = 1, smoothFactor = 0.5,
-            opacity = 1.0, fillOpacity = 0.5)
-plot(demo)
+palette <- colorNumeric(palette = viridis(256), domain = demo$estimate, na.color = "transparent")
+
+leaflet() %>%
+  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(data = demo, color = "#444444", weight = .8, smoothFactor = .5,
+              opacity = 0.2, fillOpacity = 1,
+              fillColor = ~palette(estimate)) %>%
+  addLegend(pal = palette, values = demo$estimate, title = "Estimate")
