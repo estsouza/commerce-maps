@@ -1,10 +1,34 @@
 library(shiny)
+library(tidyverse)
 library(leaflet)
+library(httr)
+library(jsonlite)
+library(sf)
+library(viridis)
+library(raster)
+library(spatstat)
+
+# yelp and census.gov api keys  loaded from config.R
+# to get your own yelp api_key follow the instruction @ https://docs.developer.yelp.com/docs/fusion-authentication
+# to get your own census.gov api_key visit http://api.census.gov/data/key_signup.html
+source("config.R")
+source("businesses_data_access.R")
+source("businesses_data_process.R")
+source("demographic_data_process.R")
+
+results <- fetch_all_yelp_data(api_key, city, term)
+
+heatmap_raster <- create_density_map(businesses = results)
+pal <- create_hm_color_palette(heatmap_raster = heatmap_raster)
+
+demo_layers <- get_demo_layers(input$selected_state, input$selected_county)
+demo_palettes <- define_palettes(demo_layers)
 
 ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       width = 3,
+
       switchInput("split_maps", label = "Split maps", value = FALSE)
     ),
     mainPanel(
