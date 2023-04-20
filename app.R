@@ -57,9 +57,7 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
 
-  results <- reactive({
-    fetch_all_yelp_data(yelp_api_key, input$density_location, input$density_category)
-  })
+  results <- reactive(fetch_all_yelp_data(yelp_api_key, input$density_location, input$density_category))
 
   heatmap_raster <- reactive(create_density_map(businesses = results()))
 
@@ -83,6 +81,7 @@ server <- function(input, output, session) {
 
   density_map <- reactive({
     req(input$density_button > 0)
+    browser()
     req(input$density_location, input$density_category)
     if (input$density_location == "" || input$density_category == "") {
       showNotification("Please provide both location and category.", type = "warning")
