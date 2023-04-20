@@ -9,18 +9,15 @@ fetch_all_yelp_data <- function(api_key = api_key, city, term, limit = 50) {
 
   # Calculate the number of required API calls
   num_calls <- ceiling(total_results / limit)
+  if (num_calls >= 1000) {
+    cat("API 50000 results limit reached. Try narrowing the results by location or category")
+  }
 
   # Fetch the rest of the results with multiple API calls
   all_results <- as_tibble(parsed_response$businesses)
   # row.names(all_results) <- NULL
-  for (i in 2:num_calls) {
+  for (i in 2:min(num_calls, 1001)) {
     offset <- (i - 1) * limit
-
-    # Break the loop if the offset is greater than 1000, as the Yelp API has a hard limit of 1000 results
-    if (offset >= 1000) {
-      cat("API 1000 results limit reached. Try narrowing the results by location or category")
-      break
-    }
 
     response <- GET(url = base_url,
                     add_headers(Authorization = paste("Bearer", api_key)),
