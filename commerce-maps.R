@@ -21,10 +21,11 @@ source("businesses_data_process.R")
 city <- "Gold Coast"
 term <- "pizza"
 results <- fetch_all_yelp_data(api_key, city, term)
-# businesses <- st_as_sf(results, coords = c("lon", "lat"), crs = 4326) # |> st_transform(crs = 3857)
 
 heatmap_raster <- create_density_map(businesses = results)
 pal <- create_hm_color_palette(heatmap_raster = heatmap_raster)
+
+demo_layers <-
 
 
 leaflet() |>

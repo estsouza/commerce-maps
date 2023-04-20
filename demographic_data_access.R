@@ -18,34 +18,6 @@ counties <- tidycensus::fips_codes %>%
     dplyr::pull(county)
 county <- counties[19]
 
-demo <- get_acs(
-  state = selected_state,
-  county = county,
-  geography = "tract",
-  variables = "B19013_001",
-  geometry = TRUE,
-  year = 2021
-) |> st_transform(crs= 4326)
-
-ggplot(demo, aes(fill = estimate, color = estimate)) +
-  geom_sf() +
-  coord_sf(crs = 26914) +
-  scale_fill_viridis(option = "magma") +
-  scale_color_viridis(option = "magma")
-
-palette <- colorNumeric(palette = viridis(256), domain = demo$estimate, na.color = "transparent")
-
-leaflet() %>%
-  addTiles() %>%
-  addProviderTiles(providers$CartoDB.Positron) %>%
-  addPolygons(data = demo, color = "#444444", weight = .8, smoothFactor = .5,
-              opacity = 0.2, fillOpacity = 1,
-              fillColor = ~palette(estimate)) %>%
-  addLegend(pal = palette, values = demo$estimate, title = "Estimate")
-
-acs_variables <- load_variables(year = 2021, dataset = "acs5", cache = TRUE)
-
-
 # Define the variables you want to retrieve
 variables <- c(
   total_pop = "B01003_001",
@@ -66,21 +38,7 @@ data <- get_acs(geography = "block group",
                 geometry = T)
 
 # Calculate population density (assuming the area is in square miles)
-data <- data |>
-  pivot_wider(id_cols = c("GEOID", "geometry"),names_from = "variable", values_from = "estimate")
-data$area_km2 <- as.numeric(st_area(data)) / 1000000
-data$density <- data$total_pop / data$area_km2
 
-palette_den <- colorNumeric(palette = viridis(256), domain = data$density*.7, na.color = "transparent")
-palette_income <- colorNumeric(palette = viridis(256), domain = data$mean_income, na.color = "transparent")
-
-leaflet() %>%
-  addTiles() %>%
-  addProviderTiles(providers$CartoDB.Positron) %>%
-  addPolygons(data = data, color = "#444444", weight = .8, smoothFactor = .5,
-              opacity = 0.2, fillOpacity = 1,
-              fillColor = ~palette_den(density)) %>%
-  addLegend(pal = palette_den, values = data$density, title = "Estimate")
 
 leaflet() %>%
   addTiles() %>%

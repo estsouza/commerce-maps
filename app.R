@@ -7,7 +7,7 @@ library(sf)
 library(viridis)
 library(raster)
 library(spatstat)
-
+library(shinyWidgets)
 # yelp and census.gov api keys  loaded from config.R
 # to get your own yelp api_key follow the instruction @ https://docs.developer.yelp.com/docs/fusion-authentication
 # to get your own census.gov api_key visit http://api.census.gov/data/key_signup.html
@@ -16,20 +16,27 @@ source("businesses_data_access.R")
 source("businesses_data_process.R")
 source("demographic_data_process.R")
 
-results <- fetch_all_yelp_data(api_key, city, term)
 
-heatmap_raster <- create_density_map(businesses = results)
-pal <- create_hm_color_palette(heatmap_raster = heatmap_raster)
 
-demo_layers <- get_demo_layers(input$selected_state, input$selected_county)
-demo_palettes <- define_palettes(demo_layers)
+
+states <- tidycensus::fips_codes %>%
+  dplyr::select(state_name) %>%
+  unique() |>
+  pull(state_name)
 
 ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       width = 3,
+      textInput("density_location", label = "Location", placeholder = "Search location..."),
+      textInput("density_category", label = "Category", placeholder = "Business category"),
+      actionButton("density_button", "Submit"),
+      switchInput("split_maps", label = "Split maps", value = FALSE),
+      selectInput("selected_state", "Select a State", choices = states, selected = NULL),
+      selectizeInput("selected_county", "Select a County", choices = NULL, selected = NULL,
+                     options = list(placeholder = "Type or select a county"))
 
-      switchInput("split_maps", label = "Split maps", value = FALSE)
+
     ),
     mainPanel(
       width = 9,
@@ -49,52 +56,21 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  output$single_map <- renderLeaflet({
-    leaflet() %>% addTiles()
+
+  results <- reactive({
+    fetch_all_yelp_data(yelp_api_key, input$density_location, input$density_category)
   })
 
-  output$density_map <- renderLeaflet({
-    leaflet() %>% addTiles()
-  })
+  heatmap_raster <- reactive(create_density_map(businesses = results()))
 
-  output$demographic_map <- renderLeaflet({
-    leaflet() %>% addTiles()
-  })
-}
+  pal <- reactive(create_hm_color_palette(heatmap_raster = heatmap_raster()))
 
-shinyApp(ui, server)
+  demo_layers <- reactive(get_demo_layers(input$selected_state, input$selected_county))
+
+  demo_palettes <- reactive(define_palettes(demo_layers()))
 
 
 
-states <- tidycensus::fips_codes %>%
-  dplyr::select(state_name) %>%
-  unique() |>
-  pull(state_name)
-#
-# selected_state_code <- reactive({input$selected_state})
-# counties <- reactive({
-#   tidycensus::tigris::fips_codes %>%
-#     dplyr::filter(state == selected_state_code(), entity == "county") %>%
-#     dplyr::select(county_code = fips, county_name = name)
-# })
-
-ui <- fluidPage(
-  titlePanel("US States and Counties"),
-
-  sidebarLayout(
-    sidebarPanel(
-      selectInput("selected_state", "Select a State", choices = states, selected = "California"),
-      selectizeInput("selected_county", "Select a County", choices = NULL, selected = NULL,
-                     options = list(placeholder = "Type or select a county"))
-    ),
-
-    mainPanel(
-      # You can display the results here
-    )
-  )
-)
-
-server <- function(input, output, session) {
   counties <- reactive({
     tidycensus::fips_codes %>%
       dplyr::filter(state_name == input$selected_state) %>%
@@ -105,4 +81,31 @@ server <- function(input, output, session) {
     updateSelectizeInput(session, "selected_county", choices = counties(), selected = NULL, server = TRUE)
   })
 
+  density_map <- reactive({
+    req(input$density_button > 0)
+    req(input$density_location, input$density_category)
+    if (input$density_location == "" || input$density_category == "") {
+      showNotification("Please provide both location and category.", type = "warning")
+      return(NULL)
+    }
+    leaflet() |>
+      addTiles() |>
+      addRasterImage(heatmap_raster(), colors = pal(), opacity = 0.7, group = "Heatmap") |>
+      addCircleMarkers(data = results(), lng = ~lon, lat = ~lat, radius = 3, color = "#CC2014", stroke = FALSE, fillOpacity = .7,
+                       group = "Businesses",
+                       popup = paste0("<strong>Name:</strong> ", results()$name, "<br>",
+                                      "<strong>Rating:</strong> ", results()$rating, "<br>",
+                                      "<strong>Categories:</strong> ", str_flatten_comma(results()$categories[[1]]$title))) |>
+      addLayersControl(overlayGroups = c("Businesses", "Heatmap"), options = layersControlOptions(collapsed = FALSE))
+  })
+
+  output$single_map <- renderLeaflet(density_map())
+
+  output$density_map <- renderLeaflet(density_map())
+
+  output$demographic_map <- renderLeaflet({
+    leaflet() %>% addTiles()
+  })
 }
+
+shinyApp(ui, server)
