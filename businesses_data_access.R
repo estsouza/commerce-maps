@@ -26,9 +26,26 @@ fetch_all_yelp_data <- function(api_key = api_key, city, term, limit = 50) {
     page <- as_tibble(parsed_response$businesses)
     all_results <- all_results |> bind_rows(page)
   }
-  all_results <- all_results |> dplyr::select(id, alias, name, review_count, rating, categories, price, coordinates) |>
+  all_results <- all_results |>
+    # dplyr::select(id, alias, name, review_count, rating, categories, coordinates) |>
     mutate(lon = coordinates$longitude,
            lat = coordinates$latitude) %>%
     dplyr::select(-coordinates)
+  centroid_lon <- median(all_results$lon)
+  centroid_lat <- median(all_results$lat)
+  all_results <- all_results |>
+    filter(between(lon, centroid_lon - 0.25, centroid_lon + 0.25),
+           between(lat, centroid_lat - 0.25, centroid_lat + 0.25))
+
   return(all_results)
 }
+
+fetch_yelp_categories <- function(api_key = yelp_api_key) {
+  base_url <- "https://api.yelp.com/v3/categories"
+  response <- GET(url = base_url,
+                  add_headers(Authorization = paste("Bearer", api_key)))
+  parsed_response <- fromJSON(content(response, type = "text"))
+  categories <- as_tibble(parsed_response$categories)
+  return(categories)
+}
+# categories <- fetch_yelp_categories(yelp_api_key)
