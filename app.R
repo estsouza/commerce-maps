@@ -42,12 +42,12 @@ ui <- fluidPage(
       fluidRow(
         conditionalPanel(
           condition = "input.demo_maps == false",
-          leafletOutput("single_map", width = "100%", height = "600px")
+          leafletOutput("single_map", width = "100%", height = "800px")
         ),
         conditionalPanel(
           condition = "input.demo_maps == true",
-          column(width = 6, leafletOutput("density_map", width = "100%", height = "600px")),
-          column(width = 6, leafletOutput("demographic_map", width = "100%", height = "600px"))
+          column(width = 6, leafletOutput("density_map", width = "100%", height = "800px")),
+          column(width = 6, leafletOutput("demographic_map", width = "100%", height = "800px"))
         )
       )
     )
@@ -91,6 +91,7 @@ server <- function(input, output, session) {
       addLayersControl(overlayGroups = c("Businesses", "Heatmap"), options = layersControlOptions(collapsed = FALSE))
   })
 
+
   demo_map <- reactive({
     req(input$demo_maps)
     req(results())
@@ -99,8 +100,9 @@ server <- function(input, output, session) {
     demo_layers <- get_demo_layers(selected_state = demo_location$state,
                                    selected_county = demo_location$county)
     demo_pal <- define_palettes(demo_layers)
+
     removeNotification(id = "census_data")
-    leaflet() %>%
+    map <- leaflet() %>%
       addTiles() %>%
       addProviderTiles(providers$OpenStreetMap, group = "OpenStreetMap") %>%
       addPolygons(data = demo_layers, group = "Population Density", color = "#444444", weight = .8, smoothFactor = .4,
@@ -117,6 +119,7 @@ server <- function(input, output, session) {
                 position = "bottomright") %>%
       addLegend(pal = demo_pal$income_palette, values = demo_layers$mean_income, title = "Mean Income",
                 position = "bottomright")
+
   })
 
   output$single_map <- renderLeaflet(density_map())
@@ -125,29 +128,39 @@ server <- function(input, output, session) {
 
   output$demographic_map <- renderLeaflet(demo_map())
 
+  map_coords <- reactiveValues(coords = NULL)
+
   observe({
     coords <- input$density_map_bounds
     if (!is.null(coords)) {
-      leafletProxy("demographic_map") %>%
-        fitBounds(coords$west,
-                  coords$south,
-                  coords$east,
-                  coords$north)
+      map_coords$coords <- coords
     }
   })
 
   observe({
     coords <- input$demographic_map_bounds
     if (!is.null(coords)) {
-      leafletProxy("density_map") %>%
-        fitBounds(coords$west,
-                  coords$south,
-                  coords$east,
-                  coords$north)
+      map_coords$coords <- coords
     }
   })
+
+  observe({
+    req(map_coords$coords)
+    coords <- map_coords$coords
+
+    leafletProxy("demographic_map") %>%
+      fitBounds(coords$west,
+                coords$south,
+                coords$east,
+                coords$north)
+
+    leafletProxy("density_map") %>%
+      fitBounds(coords$west,
+                coords$south,
+                coords$east,
+                coords$north)
+  })
+
 }
 
 shinyApp(ui, server)
-### deafult demo map
-## message loading census data
