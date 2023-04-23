@@ -19,22 +19,28 @@ source("demographic_data_process.R")
 
 
 
-states <- tidycensus::fips_codes %>%
-  dplyr::select(state_name) %>%
-  unique() |>
-  pull(state_name)
+# states <- tidycensus::fips_codes %>%
+#   dplyr::select(state_name) %>%
+#   unique() |>
+#   pull(state_name)
 
 ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       width = 3,
-      textInput("density_location", label = "Location", placeholder = "Search location..."),
-      textInput("density_category", label = "Category", placeholder = "Business category"),
+      textInput("density_location", label = "Location", placeholder = "Try Houston"),
+      textInput("density_category", label = "Category", placeholder = "Try italian"),
       actionButton("density_button", "Submit"),
-      switchInput("split_maps", label = "Split maps", value = FALSE),
-      selectInput("selected_state", "Select a State", choices = states, selected = NULL),
-      selectizeInput("selected_county", "Select a County", choices = NULL, selected = NULL,
-                     options = list(placeholder = "Type or select a county"))
+      br(),
+      helpText("Show demographic maps.
+               Only available for the US."),
+      switchInput("demo_maps", label = "Demo Map", value = FALSE),
+      conditionalPanel(
+        condition = "input.demo_maps == true"#,
+        # selectInput("selected_state", "Select a State", choices = states, selected = NULL),
+        # selectizeInput("selected_county", "Select a County", choices = NULL, selected = NULL,
+        #                options = list(placeholder = "Type or select a county"))
+      )
 
 
     ),
@@ -42,11 +48,11 @@ ui <- fluidPage(
       width = 9,
       fluidRow(
         conditionalPanel(
-          condition = "input.split_maps == false",
+          condition = "input.demo_maps == false",
           leafletOutput("single_map", width = "100%", height = "600px")
         ),
         conditionalPanel(
-          condition = "input.split_maps == true",
+          condition = "input.demo_maps == true",
           column(width = 6, leafletOutput("density_map", width = "100%", height = "600px")),
           column(width = 6, leafletOutput("demographic_map", width = "100%", height = "600px"))
         )
@@ -57,7 +63,14 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
 
-  results <- reactive(fetch_all_yelp_data(yelp_api_key, input$density_location, input$density_category))
+  results <- eventReactive(input$density_button, {
+    req(input$density_location, input$density_category)
+    if (input$density_location == "" || input$density_category == "") {
+      showNotification("Please provide both location and category.", type = "warning")
+      return(NULL)
+    }
+    fetch_all_yelp_data(yelp_api_key, input$density_location, input$density_category)
+  })
 
   heatmap_raster <- reactive(create_density_map(businesses = results()))
 
@@ -68,25 +81,20 @@ server <- function(input, output, session) {
   demo_palettes <- reactive(define_palettes(demo_layers()))
 
 
-
-  counties <- reactive({
-    tidycensus::fips_codes %>%
-      dplyr::filter(state_name == input$selected_state) %>%
-      dplyr::pull(county)
-  })
-
-  observe({
-    updateSelectizeInput(session, "selected_county", choices = counties(), selected = NULL, server = TRUE)
-  })
+#
+#   counties <- reactive({
+#     tidycensus::fips_codes %>%
+#       dplyr::filter(state_name == input$selected_state) %>%
+#       dplyr::pull(county)
+#   })
+#
+#   observe({
+#     updateSelectizeInput(session, "selected_county", choices = counties(), selected = NULL, server = TRUE)
+#   })
 
   density_map <- reactive({
-    req(input$density_button > 0)
-    browser()
-    req(input$density_location, input$density_category)
-    if (input$density_location == "" || input$density_category == "") {
-      showNotification("Please provide both location and category.", type = "warning")
-      return(NULL)
-    }
+    req(results())
+    req(heatmap_raster())
     leaflet() |>
       addTiles() |>
       addRasterImage(heatmap_raster(), colors = pal(), opacity = 0.7, group = "Heatmap") |>
@@ -98,9 +106,35 @@ server <- function(input, output, session) {
       addLayersControl(overlayGroups = c("Businesses", "Heatmap"), options = layersControlOptions(collapsed = FALSE))
   })
 
+  demo_map <- reactive({
+    req(input$demo_maps)
+    req(results())
+    demo_location <- get_state_county(results())
+    demo_layers <- get_demo_layers(selected_state = demo_location$state,
+                                   selected_county = demo_location$county)
+    demo_pal <- define_palettes(demo_layers)
+    leaflet() %>%
+      addTiles() %>%
+      addProviderTiles(providers$OpenStreetMap, group = "OpenStreetMap") %>%
+      addPolygons(data = data, group = "Population Density", color = "#444444", weight = .8, smoothFactor = .4,
+                  opacity = 0.2, fillOpacity = 1,
+                  fillColor = ~palette_den(density)) %>%
+      addPolygons(data = data, group = "Mean Income", color = "#444444", weight = .8, smoothFactor = .4,
+                  opacity = 0.2, fillOpacity = 1,
+                  fillColor = ~palette_income(mean_income)) %>%
+      addLayersControl(
+        baseGroups = c("OpenStreetMap", "Population Density", "Mean Income"),
+        options = layersControlOptions(collapsed = FALSE)
+      ) %>%
+      addLegend(pal = palette_den, values = data$density, title = "Population Density",
+                position = "bottomright") %>%
+      addLegend(pal = palette_income, values = data$mean_income, title = "Mean Income",
+                position = "bottomright")
+  })
+
   output$single_map <- renderLeaflet(density_map())
 
-  output$density_map <- renderLeaflet(density_map())
+  output$density_map <- renderLeaflet(demo_map())
 
   output$demographic_map <- renderLeaflet({
     leaflet() %>% addTiles()
@@ -108,3 +142,8 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+### Bug: category sin price
+### Outliers locations
+### sidepanel height
+### maps sync
+
