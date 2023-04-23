@@ -116,19 +116,19 @@ server <- function(input, output, session) {
     leaflet() %>%
       addTiles() %>%
       addProviderTiles(providers$OpenStreetMap, group = "OpenStreetMap") %>%
-      addPolygons(data = data, group = "Population Density", color = "#444444", weight = .8, smoothFactor = .4,
+      addPolygons(data = demo_layers, group = "Population Density", color = "#444444", weight = .8, smoothFactor = .4,
                   opacity = 0.2, fillOpacity = 1,
-                  fillColor = ~palette_den(density)) %>%
-      addPolygons(data = data, group = "Mean Income", color = "#444444", weight = .8, smoothFactor = .4,
+                  fillColor = ~demo_pal$density_pallete(density)) %>%
+      addPolygons(data = demo_layers, group = "Mean Income", color = "#444444", weight = .8, smoothFactor = .4,
                   opacity = 0.2, fillOpacity = 1,
-                  fillColor = ~palette_income(mean_income)) %>%
+                  fillColor = ~demo_pal$income_pallete(mean_income)) %>%
       addLayersControl(
         baseGroups = c("OpenStreetMap", "Population Density", "Mean Income"),
         options = layersControlOptions(collapsed = FALSE)
       ) %>%
-      addLegend(pal = palette_den, values = data$density, title = "Population Density",
+      addLegend(pal = demo_pal$density_pallete, values = demo_layers$density, title = "Population Density",
                 position = "bottomright") %>%
-      addLegend(pal = palette_income, values = data$mean_income, title = "Mean Income",
+      addLegend(pal = demo_pal$income_pallete, values = demo_layers$mean_income, title = "Mean Income",
                 position = "bottomright")
   })
 
