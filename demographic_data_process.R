@@ -1,13 +1,11 @@
 require(tidycensus)
 
+census_api_key(census.gov_api_key)
+
 # Define the variables to retrieve
 variables <- c(
   total_pop = "B01003_001",
   mean_income = "B19013_001"
-  # age_0_17 = "B01001_003",
-  # age_18_34 = "B01001_011",
-  # age_35_64 = "B01001_019",
-  # age_65_plus = "B01001_027"
 )
 counties_sf <- sf::st_read("./shapefiles/counties_us.shp")
 
@@ -53,5 +51,3 @@ define_palettes <- function(demo_layers) {
     income_palette = palette_income
   ))
 }
-
-

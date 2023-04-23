@@ -39,13 +39,3 @@ fetch_all_yelp_data <- function(api_key = api_key, city, term, limit = 50) {
 
   return(all_results)
 }
-
-fetch_yelp_categories <- function(api_key = yelp_api_key) {
-  base_url <- "https://api.yelp.com/v3/categories"
-  response <- GET(url = base_url,
-                  add_headers(Authorization = paste("Bearer", api_key)))
-  parsed_response <- fromJSON(content(response, type = "text"))
-  categories <- as_tibble(parsed_response$categories)
-  return(categories)
-}
-# categories <- fetch_yelp_categories(yelp_api_key)
