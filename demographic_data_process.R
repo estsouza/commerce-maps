@@ -47,9 +47,9 @@ get_demo_layers <- function(selected_state, selected_county, geography = "block 
 
 define_palettes <- function(demo_layers) {
   palette_den <- colorNumeric(palette = viridis(256), domain = demo_layers$density*.6, na.color = "transparent")
-  palette_income <- colorNumeric(palette = viridis(256), domain = demo_layers$mean_income*.8, na.color = "transparent")
+  palette_income <- colorNumeric(palette = viridis(256), domain = demo_layers$mean_income*.8, na.color = "black")
   return(list(
-    denisity_palette = palette_den,
+    density_palette = palette_den,
     income_palette = palette_income
   ))
 }

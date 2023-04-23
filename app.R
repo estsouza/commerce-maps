@@ -8,6 +8,7 @@ library(viridis)
 library(raster)
 library(spatstat)
 library(shinyWidgets)
+
 # yelp and census.gov api keys  loaded from config.R
 # to get your own yelp api_key follow the instruction @ https://docs.developer.yelp.com/docs/fusion-authentication
 # to get your own census.gov api_key visit http://api.census.gov/data/key_signup.html
@@ -15,14 +16,6 @@ source("config.R")
 source("businesses_data_access.R")
 source("businesses_data_process.R")
 source("demographic_data_process.R")
-
-
-
-
-# states <- tidycensus::fips_codes %>%
-#   dplyr::select(state_name) %>%
-#   unique() |>
-#   pull(state_name)
 
 ui <- fluidPage(
   sidebarLayout(
@@ -69,6 +62,7 @@ server <- function(input, output, session) {
       showNotification("Please provide both location and category.", type = "warning")
       return(NULL)
     }
+    showNotification("Loading businesses data...\n\nPlease wait", id =  "yelp_data",duration = NULL, closeButton = FALSE)
     fetch_all_yelp_data(yelp_api_key, input$density_location, input$density_category)
   })
 
@@ -76,25 +70,16 @@ server <- function(input, output, session) {
 
   pal <- reactive(create_hm_color_palette(heatmap_raster = heatmap_raster()))
 
-  demo_layers <- reactive(get_demo_layers(input$selected_state, input$selected_county))
+  demo_layers <- reactive({
+    get_demo_layers(input$selected_state, input$selected_county)
+    })
 
   demo_palettes <- reactive(define_palettes(demo_layers()))
-
-
-#
-#   counties <- reactive({
-#     tidycensus::fips_codes %>%
-#       dplyr::filter(state_name == input$selected_state) %>%
-#       dplyr::pull(county)
-#   })
-#
-#   observe({
-#     updateSelectizeInput(session, "selected_county", choices = counties(), selected = NULL, server = TRUE)
-#   })
 
   density_map <- reactive({
     req(results())
     req(heatmap_raster())
+    removeNotification(id = "yelp_data")
     leaflet() |>
       addTiles() |>
       addRasterImage(heatmap_raster(), colors = pal(), opacity = 0.7, group = "Heatmap") |>
@@ -109,26 +94,28 @@ server <- function(input, output, session) {
   demo_map <- reactive({
     req(input$demo_maps)
     req(results())
+    showNotification("Loading demographic data...\n\nPlease wait", id =  "census_data",duration = NULL, closeButton = FALSE)
     demo_location <- get_state_county(results())
     demo_layers <- get_demo_layers(selected_state = demo_location$state,
                                    selected_county = demo_location$county)
     demo_pal <- define_palettes(demo_layers)
+    removeNotification(id = "census_data")
     leaflet() %>%
       addTiles() %>%
       addProviderTiles(providers$OpenStreetMap, group = "OpenStreetMap") %>%
       addPolygons(data = demo_layers, group = "Population Density", color = "#444444", weight = .8, smoothFactor = .4,
                   opacity = 0.2, fillOpacity = 1,
-                  fillColor = ~demo_pal$density_pallete(density)) %>%
+                  fillColor = ~demo_pal$density_palette(density)) %>%
       addPolygons(data = demo_layers, group = "Mean Income", color = "#444444", weight = .8, smoothFactor = .4,
                   opacity = 0.2, fillOpacity = 1,
-                  fillColor = ~demo_pal$income_pallete(mean_income)) %>%
+                  fillColor = ~demo_pal$income_palette(mean_income)) %>%
       addLayersControl(
-        baseGroups = c("OpenStreetMap", "Population Density", "Mean Income"),
+        baseGroups = c("Population Density", "Mean Income", "OpenStreetMap"),
         options = layersControlOptions(collapsed = FALSE)
       ) %>%
-      addLegend(pal = demo_pal$density_pallete, values = demo_layers$density, title = "Population Density",
+      addLegend(pal = demo_pal$density_palette, values = demo_layers$density, title = "Population Density",
                 position = "bottomright") %>%
-      addLegend(pal = demo_pal$income_pallete, values = demo_layers$mean_income, title = "Mean Income",
+      addLegend(pal = demo_pal$income_palette, values = demo_layers$mean_income, title = "Mean Income",
                 position = "bottomright")
   })
 
@@ -137,12 +124,30 @@ server <- function(input, output, session) {
   output$density_map <- renderLeaflet(density_map())
 
   output$demographic_map <- renderLeaflet(demo_map())
+
+  observe({
+    coords <- input$density_map_bounds
+    if (!is.null(coords)) {
+      leafletProxy("demographic_map") %>%
+        fitBounds(coords$west,
+                  coords$south,
+                  coords$east,
+                  coords$north)
+    }
+  })
+
+  observe({
+    coords <- input$demographic_map_bounds
+    if (!is.null(coords)) {
+      leafletProxy("density_map") %>%
+        fitBounds(coords$west,
+                  coords$south,
+                  coords$east,
+                  coords$north)
+    }
+  })
 }
 
 shinyApp(ui, server)
-### simplificar shape
-### Bug: category sin price
-### Outliers locations
-### sidepanel height
-### maps sync
-### enter submit
+### deafult demo map
+## message loading census data
