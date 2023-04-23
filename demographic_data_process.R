@@ -9,6 +9,23 @@ variables <- c(
   # age_35_64 = "B01001_019",
   # age_65_plus = "B01001_027"
 )
+counties_sf <- sf::st_read("./shapefiles/counties_us.shp")
+
+get_state_county <- function(businesses) {
+  if (nrow(businesses) > 0) {
+    centroid_lon <- median(businesses$lon)
+    centroid_lat <- median(businesses$lat)
+    centroid <- st_as_sf(tibble(lon = centroid_lon, lat = centroid_lat),
+                         coords = c("lon", "lat"),
+                         crs = 4326)
+
+    county_result <- st_join(centroid, counties_sf)
+    nearest_county_index <- sf::st_nearest_feature(centroid, counties_sf)
+    list(state = county_result$STATEFP[1], county = county_result$COUNTYFP[1])
+  } else {
+    NULL
+  }
+}
 
 get_demo_layers <- function(selected_state, selected_county, geography = "block group") {
   # Get the census.gov data for a specific state or county
