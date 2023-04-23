@@ -1,7 +1,6 @@
 # install.packages("tidycensus")
 require(tidyverse)
 require(sf)
-require(tidycensus)
 require(viridis)
 require(leaflet)
 source("config.R")

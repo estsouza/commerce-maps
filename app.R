@@ -134,16 +134,15 @@ server <- function(input, output, session) {
 
   output$single_map <- renderLeaflet(density_map())
 
-  output$density_map <- renderLeaflet(demo_map())
+  output$density_map <- renderLeaflet(density_map())
 
-  output$demographic_map <- renderLeaflet({
-    leaflet() %>% addTiles()
-  })
+  output$demographic_map <- renderLeaflet(demo_map())
 }
 
 shinyApp(ui, server)
+### simplificar shape
 ### Bug: category sin price
 ### Outliers locations
 ### sidepanel height
 ### maps sync
-
+### enter submit

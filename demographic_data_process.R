@@ -1,4 +1,4 @@
-
+require(tidycensus)
 
 # Define the variables to retrieve
 variables <- c(
@@ -20,7 +20,6 @@ get_state_county <- function(businesses) {
                          crs = 4326)
 
     county_result <- st_join(centroid, counties_sf)
-    nearest_county_index <- sf::st_nearest_feature(centroid, counties_sf)
     list(state = county_result$STATEFP[1], county = county_result$COUNTYFP[1])
   } else {
     NULL
