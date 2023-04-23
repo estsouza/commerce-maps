@@ -1,9 +1,9 @@
 create_density_map <- function(businesses) {
 
   offset <- 0.1
-  window <- owin(xrange = c(min(results$lon) - offset, max(results$lon) + offset),
-                 yrange = c(min(results$lat) - offset, max(results$lat) + offset))
-  pts <- ppp(x = results$lon, y = results$lat, window = window)
+  window <- owin(xrange = c(min(businesses$lon) - offset, max(businesses$lon) + offset),
+                 yrange = c(min(businesses$lat) - offset, max(businesses$lat) + offset))
+  pts <- ppp(x = businesses$lon, y = businesses$lat, window = window)
   ds <- density.ppp(pts, sigma = 0.02, kernel = "quartic")
 
   heatmap_raster <- raster(ds)
