@@ -1,5 +1,7 @@
+# Load required packages
 require(tidycensus)
 
+# Set API key for Census API
 census_api_key(census.gov_api_key)
 
 # Define the variables to retrieve
@@ -7,8 +9,18 @@ variables <- c(
   total_pop = "B01003_001",
   mean_income = "B19013_001"
 )
+
+# Read shapefile for US counties
 counties_sf <- sf::st_read("./shapefiles/counties_us.shp")
 
+# Get the state and county codes for the centroid of the businesses.
+#
+# Args:
+#   businesses: A tibble containing business data with 'lon' and 'lat' columns for coordinates.
+#
+# Returns:
+#   A list with 'state' and 'county' codes, or NULL if no businesses are provided.
+#
 get_state_county <- function(businesses) {
   if (nrow(businesses) > 0) {
     centroid_lon <- median(businesses$lon)
@@ -24,8 +36,17 @@ get_state_county <- function(businesses) {
   }
 }
 
+# Get the demographic layers for the given state and county.
+#
+# Args:
+#   selected_state: The state code.
+#   selected_county: The county code.
+#   geography: The geography level for the ACS data (default: "block group").
+#
+# Returns:
+#   A spatial dataframe containing the demographic data.
+#
 get_demo_layers <- function(selected_state, selected_county, geography = "block group") {
-  # Get the census.gov data for a specific state or county
   demo_layers <- get_acs(geography = geography,
                   variables = variables,
                   state = selected_state,
@@ -33,8 +54,6 @@ get_demo_layers <- function(selected_state, selected_county, geography = "block 
                   survey = "acs5",
                   year = 2021,
                   geometry = T)
-
-  # Calculate population density
   demo_layers <- demo_layers |>
     pivot_wider(id_cols = c("GEOID", "geometry"),names_from = "variable", values_from = "estimate")
   demo_layers$area_km2 <- as.numeric(st_area(demo_layers)) / 1000000
@@ -43,6 +62,14 @@ get_demo_layers <- function(selected_state, selected_county, geography = "block 
   demo_layers
 }
 
+# Define color palettes for the demographic layers.
+#
+# Args:
+#   demo_layers: A spatial dataframe containing the demographic data.
+#
+# Returns:
+#   A list with two color palette functions for density and income.
+#
 define_palettes <- function(demo_layers) {
   palette_den <- colorNumeric(palette = viridis(256), domain = demo_layers$density*.6, na.color = "transparent")
   palette_income <- colorNumeric(palette = viridis(256), domain = demo_layers$mean_income*.8, na.color = "black")

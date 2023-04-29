@@ -1,3 +1,4 @@
+# Load required libraries
 library(shiny)
 library(tidyverse)
 library(leaflet)
@@ -9,14 +10,13 @@ library(raster)
 library(spatstat)
 library(shinyWidgets)
 
-# yelp and census.gov api keys  loaded from config.R
-# to get your own yelp api_key follow the instruction @ https://docs.developer.yelp.com/docs/fusion-authentication
-# to get your own census.gov api_key visit http://api.census.gov/data/key_signup.html
+# Load external files
 source("config.R")
 source("businesses_data_access.R")
 source("businesses_data_process.R")
 source("demographic_data_process.R")
 
+# Define the user interface for the app
 ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
@@ -34,8 +34,6 @@ ui <- fluidPage(
         # selectizeInput("selected_county", "Select a County", choices = NULL, selected = NULL,
         #                options = list(placeholder = "Type or select a county"))
       )
-
-
     ),
     mainPanel(
       width = 9,
@@ -54,8 +52,10 @@ ui <- fluidPage(
   )
 )
 
+# Define the server logic for the app
 server <- function(input, output, session) {
 
+  # Fetch business data when the submit button is clicked
   results <- eventReactive(input$density_button, {
     req(input$density_location, input$density_category)
     if (input$density_location == "" || input$density_category == "") {
@@ -66,16 +66,13 @@ server <- function(input, output, session) {
     fetch_all_yelp_data(yelp_api_key, input$density_location, input$density_category)
   })
 
+  # Create heatmap_raster, pal, demo_layers, and demo_palettes reactive expressions
   heatmap_raster <- reactive(create_density_map(businesses = results()))
-
   pal <- reactive(create_hm_color_palette(heatmap_raster = heatmap_raster()))
-
-  demo_layers <- reactive({
-    get_demo_layers(input$selected_state, input$selected_county)
-    })
-
+  demo_layers <- reactive(get_demo_layers(input$selected_state, input$selected_county))
   demo_palettes <- reactive(define_palettes(demo_layers()))
 
+  # Create a density map with business data and heatmap
   density_map <- reactive({
     req(results())
     req(heatmap_raster())
@@ -91,7 +88,7 @@ server <- function(input, output, session) {
       addLayersControl(overlayGroups = c("Businesses", "Heatmap"), options = layersControlOptions(collapsed = FALSE))
   })
 
-
+  # Create a demographic map with Census data
   demo_map <- reactive({
     req(input$demo_maps)
     req(results())
@@ -100,7 +97,6 @@ server <- function(input, output, session) {
     demo_layers <- get_demo_layers(selected_state = demo_location$state,
                                    selected_county = demo_location$county)
     demo_pal <- define_palettes(demo_layers)
-
     removeNotification(id = "census_data")
     map <- leaflet() %>%
       addTiles() %>%
@@ -119,24 +115,23 @@ server <- function(input, output, session) {
                 position = "bottomright") %>%
       addLegend(pal = demo_pal$income_palette, values = demo_layers$mean_income, title = "Mean Income",
                 position = "bottomright")
-
   })
 
+  # Render leaflet outputs
   output$single_map <- renderLeaflet(density_map())
-
   output$density_map <- renderLeaflet(density_map())
-
   output$demographic_map <- renderLeaflet(demo_map())
 
+  # Reactive values for map coordinates
   map_coords <- reactiveValues(coords = NULL)
 
+  # Observers to sync the bounds of density and demographic maps
   observe({
     coords <- input$density_map_bounds
     if (!is.null(coords)) {
       map_coords$coords <- coords
     }
   })
-
   observe({
     coords <- input$demographic_map_bounds
     if (!is.null(coords)) {
@@ -144,23 +139,22 @@ server <- function(input, output, session) {
     }
   })
 
+  # Fit the bounds of the maps to the user's viewport
   observe({
     req(map_coords$coords)
     coords <- map_coords$coords
-
     leafletProxy("demographic_map") %>%
       fitBounds(coords$west,
                 coords$south,
                 coords$east,
                 coords$north)
-
     leafletProxy("density_map") %>%
       fitBounds(coords$west,
                 coords$south,
                 coords$east,
                 coords$north)
   })
-
 }
 
+# Run the app
 shinyApp(ui, server)
